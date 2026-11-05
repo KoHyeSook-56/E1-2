@@ -64,3 +64,14 @@ class QuizGame:
         print(f"\n결과: {total}문제 중 {correct}문제 정답! ({score:g}점)")
         self.update_best(score, correct, total)
         self.save_state()
+
+    def add_quiz(self):
+        print("\n새로운 퀴즈를 추가합니다.")
+        question = read_text("문제를 입력하세요: ")
+        choices = [read_text(f"선택지 {i}: ") for i in range(1, 5)]
+        answer = read_int("정답 번호 (1~4): ", 1, 4)
+        self.quizzes.append(Quiz(question, choices, answer))
+        if self.save_state():
+            print("퀴즈가 추가되고 저장되었습니다!")
+        else:
+            print("퀴즈는 현재 실행 중에만 추가되었습니다. 저장 오류를 확인하세요.")
