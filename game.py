@@ -96,3 +96,62 @@ class QuizGame:
             print("아직 완료한 퀴즈가 없습니다.")
         else:
             print(f"최고 점수: {self.best_score:g}점 ({self.best_total}문제 중 {self.best_correct}문제 정답)")
+
+    def load_state(self):
+        try:
+            with self.state_path.open(encoding="utf-8") as file:
+                data = json.load(file)
+            if not isinstance(data, dict) or not isinstance(data["quizzes"], list):
+                raise ValueError("퀴즈 목록 형식 오류")
+            quizzes = [Quiz.from_dict(row) for row in data["quizzes"]]
+            score = data["best_score"]
+            correct = data.get("best_correct", 0)
+            total = data.get("best_total", 0)
+            if type(correct) is not int or type(total) is not int or not 0 <= correct <= total:
+                raise ValueError("정답 수 형식 오류")
+            if score is not None:
+                if type(score) not in (int, float) or not 0 <= score <= 100 or total == 0:
+                    raise ValueError("점수 형식 오류")
+                if score != round(correct / total * 100, 2):
+                    raise ValueError("점수와 정답 수 불일치")
+            elif correct != 0 or total != 0:
+                raise ValueError("미플레이 상태 불일치")
+            self.quizzes = quizzes
+            self.best_score, self.best_correct, self.best_total = score, correct, total
+            print(f"저장된 데이터를 불러왔습니다. (퀴즈 {len(quizzes)}개)")
+        except FileNotFoundError:
+            print("첫 실행입니다. 기본 퀴즈 8개로 시작합니다.")
+        except (ValueError, TypeError, KeyError, OverflowError):
+            print("데이터 파일이 손상되었습니다. 원본을 백업하고 기본 퀴즈로 복구합니다.")
+            backup = self.state_path.with_name("state.corrupt." + datetime.now().strftime("%Y%m%d%H%M%S%f") + ".json")
+            try:
+                self.state_path.rename(backup)
+            except OSError:
+                self.writable = False
+                print("백업할 수 없어 원본 보호를 위해 저장을 중지합니다.")
+        except OSError:
+            self.writable = False
+            print("파일을 읽을 수 없습니다. 기본 퀴즈로 시작하며 원본 보호를 위해 저장을 중지합니다.")
+
+    def save_state(self):
+        if not self.writable:
+            print("저장이 중지된 상태입니다. 파일 경로와 권한을 확인하세요.")
+            return False
+        temporary = self.state_path.with_name(self.state_path.name + ".tmp")
+        data = {
+            "quizzes": [quiz.to_dict() for quiz in self.quizzes],
+            "best_score": self.best_score,
+            "best_correct": self.best_correct,
+            "best_total": self.best_total,
+        }
+        try:
+            with temporary.open("w", encoding="utf-8") as file:
+                json.dump(data, file, ensure_ascii=False, indent=2)
+                file.write("\n")
+                file.flush()
+                os.fsync(file.fileno())
+            temporary.replace(self.state_path)
+            return True
+        except OSError:
+            print("저장하지 못했습니다. 파일 경로와 쓰기 권한을 확인하세요.")
+            return False
