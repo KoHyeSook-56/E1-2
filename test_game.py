@@ -52,17 +52,32 @@ class GameTests(unittest.TestCase):
     def test_play_and_best_persist(self):
         game = self.game()
         answers = [str(q.answer) for q in game.quizzes]
-        with patch("builtins.input", side_effect=answers):
+        with patch("game.random.shuffle"), patch("builtins.input", side_effect=answers):
             game.play()
         self.assertEqual(self.game().best_score, 100)
-        with patch("builtins.input", side_effect=[str(q.answer % 4 + 1) for q in game.quizzes]):
+        with patch("game.random.shuffle"), patch("builtins.input", side_effect=[str(q.answer % 4 + 1) for q in game.quizzes]):
             game.play()
         self.assertEqual(self.game().best_score, 100)
         self.assertIn("오답입니다", self.output.getvalue())
 
+    def test_play_shuffles_questions_without_reordering_saved_quizzes(self):
+        game = self.game()
+        original_questions = [quiz.question for quiz in game.quizzes]
+        shuffled_quizzes = list(reversed(game.quizzes))
+        answers = [str(quiz.answer) for quiz in shuffled_quizzes]
+        with patch("game.random.shuffle", side_effect=lambda quizzes: quizzes.reverse()), patch(
+            "builtins.input", side_effect=answers
+        ):
+            game.play()
+        output = self.output.getvalue()
+        positions = [output.index(quiz.question) for quiz in shuffled_quizzes]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual([quiz.question for quiz in game.quizzes], original_questions)
+        self.assertEqual(game.best_score, 100)
+
     def test_zero_score_differs_from_not_played(self):
         game = self.game()
-        with patch("builtins.input", side_effect=[str(q.answer % 4 + 1) for q in game.quizzes]):
+        with patch("game.random.shuffle"), patch("builtins.input", side_effect=[str(q.answer % 4 + 1) for q in game.quizzes]):
             game.play()
         self.assertEqual(self.game().best_score, 0)
         game.show_score()
@@ -107,7 +122,7 @@ class GameTests(unittest.TestCase):
         for error in (KeyboardInterrupt, EOFError):
             with self.subTest(error=error):
                 game = self.game()
-                with patch("builtins.input", side_effect=error):
+                with patch("game.random.shuffle"), patch("builtins.input", side_effect=error):
                     game.run()
                 self.assertTrue(self.path.is_file())
         self.assertIn("입력이 중단", self.output.getvalue())

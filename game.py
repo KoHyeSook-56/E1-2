@@ -1,6 +1,7 @@
 """메뉴, 게임 진행, 상태 저장을 관리합니다."""
 import json
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 from defaults import default_quizzes
@@ -50,8 +51,10 @@ class QuizGame:
             return
         correct = 0
         total = len(self.quizzes)
+        quizzes = self.quizzes.copy()
+        random.shuffle(quizzes)
         print(f"\n퀴즈를 시작합니다! 총 {total}문제")
-        for number, quiz in enumerate(self.quizzes, start=1):
+        for number, quiz in enumerate(quizzes, start=1):
             print(f"\n[문제 {number}/{total}]")
             quiz.display()
             answer = read_int("정답 입력 (1~4): ", 1, 4)
